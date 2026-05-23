@@ -2,9 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Status
+## Project Overview
 
-This is a new, empty project. Update this file once the project structure and toolchain are established.
+A single-file Pomodoro timer web app (`pomodoro-timer/index.html`) with work/break/long-break modes, task tracking, session log, and Web Audio API beep notifications. `serve.ps1` runs a lightweight local HTTP server on port 3333.
+
+## Development
+
+```powershell
+# Start local server
+.\serve.ps1
+# Then open http://localhost:3333
+```
 
 ## Security Rules
 
