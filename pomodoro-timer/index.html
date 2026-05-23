@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ポモドーロタイマー</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --work-bg: #1a1a2e;
+      --work-accent: #e94560;
+      --break-bg: #0f3460;
+      --break-accent: #16213e;
+      --ring-work: #e94560;
+      --ring-break: #4caf50;
+      --text: #eaeaea;
+      --muted: #888;
+      --radius: 16px;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--work-bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      padding: 24px;
+      transition: background 0.6s ease;
+    }
+
+    body.break-mode { background: var(--break-bg); }
+
+    h1 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* Mode tabs */
+    .mode-tabs {
+      display: flex;
+      gap: 8px;
+      background: rgba(255,255,255,0.07);
+      border-radius: 50px;
+      padding: 4px;
+    }
+
+    .mode-tabs button {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      padding: 8px 20px;
+      border-radius: 50px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .mode-tabs button.active {
+      background: var(--ring-work);
+      color: #fff;
+    }
+
+    body.break-mode .mode-tabs button.active { background: var(--ring-break); }
+
+    /* SVG ring timer */
+    .ring-container {
+      position: relative;
+      width: 260px;
+      height: 260px;
+    }
+
+    .ring-container svg {
+      transform: rotate(-90deg);
+      width: 100%;
+      height: 100%;
+    }
+
+    .ring-bg { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 10; }
+
+    .ring-progress {
+      fill: none;
+      stroke: var(--ring-work);
+      stroke-width: 10;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.9s linear, stroke 0.6s ease;
+    }
+
+    body.break-mode .ring-progress { stroke: var(--ring-break); }
+
+    .time-display {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    #time {
+      font-size: 3.5rem;
+      font-weight: 700;
+      letter-spacing: -2px;
+      line-height: 1;
+    }
+
+    #phase-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+    }
+
+    /* Task input */
+    .task-row {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      max-width: 340px;
+    }
+
+    #task-input {
+      flex: 1;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 0.9rem;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    #task-input:focus { border-color: var(--ring-work); }
+    body.break-mode #task-input:focus { border-color: var(--ring-break); }
+    #task-input::placeholder { color: var(--muted); }
+
+    .add-btn {
+      background: rgba(255,255,255,0.1);
+      border: none;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 0 16px;
+      font-size: 1.2rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .add-btn:hover { background: rgba(255,255,255,0.18); }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+
+    .btn:active { transform: scale(0.96); }
+
+    #start-btn {
+      background: var(--ring-work);
+      color: #fff;
+      font-size: 1rem;
+      padding: 14px 40px;
+      letter-spacing: 0.05em;
+    }
+
+    body.break-mode #start-btn { background: var(--ring-break); }
+
+    #reset-btn {
+      background: rgba(255,255,255,0.1);
+      color: var(--muted);
+      font-size: 0.85rem;
+      padding: 12px 20px;
+    }
+
+    #reset-btn:hover { background: rgba(255,255,255,0.18); color: var(--text); }
+
+    /* Session log */
+    .log-section {
+      width: 100%;
+      max-width: 340px;
+    }
+
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .log-header span { font-size: 0.8rem; color: var(--muted); letter-spacing: 0.08em; }
+
+    .log-header button {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 0.75rem;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: color 0.2s;
+    }
+
+    .log-header button:hover { color: var(--text); }
+
+    #session-log {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 180px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.15) transparent;
+    }
+
+    .log-item {
+      background: rgba(255,255,255,0.06);
+      border-radius: 10px;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .log-item .task-name { flex: 1; }
+    .log-item .log-meta { color: var(--muted); font-size: 0.75rem; display: flex; gap: 8px; }
+    .log-item .pomodoros { color: var(--ring-work); font-weight: 700; }
+
+    .empty-log { color: var(--muted); font-size: 0.85rem; text-align: center; padding: 16px; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Counter badge */
+    #cycle-count {
+      font-size: 0.8rem;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+
+    #cycle-count span { color: var(--ring-work); font-weight: 700; }
+    body.break-mode #cycle-count span { color: var(--ring-break); }
+  </style>
+</head>
+<body>
+
+  <h1>ポモドーロタイマー</h1>
+
+  <div class="mode-tabs">
+    <button class="active" data-minutes="25" data-mode="work">作業 25分</button>
+    <button data-minutes="5"  data-mode="break">休憩 5分</button>
+    <button data-minutes="15" data-mode="long">長休憩 15分</button>
+  </div>
+
+  <div class="ring-container">
+    <svg viewBox="0 0 260 260">
+      <circle class="ring-bg"       cx="130" cy="130" r="118" />
+      <circle class="ring-progress" cx="130" cy="130" r="118"
+        id="ring"
+        stroke-dasharray="741.4"
+        stroke-dashoffset="0" />
+    </svg>
+    <div class="time-display">
+      <div id="time">25:00</div>
+      <div id="phase-label">作業中</div>
+    </div>
+  </div>
+
+  <div class="task-row">
+    <input id="task-input" type="text" placeholder="今やること…" maxlength="40">
+    <button class="add-btn" id="add-task-btn" title="タスクを追加">＋</button>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="reset-btn">リセット</button>
+    <button class="btn" id="start-btn">スタート</button>
+  </div>
+
+  <div id="cycle-count">今日のポモドーロ：<span id="count">0</span> 個</div>
+
+  <div class="log-section">
+    <div class="log-header">
+      <span>セッションログ</span>
+      <button id="clear-log-btn">クリア</button>
+    </div>
+    <div id="session-log">
+      <div class="empty-log">完了したセッションがここに表示されます</div>
+    </div>
+  </div>
+
+  <script>
+    const CIRCUMFERENCE = 2 * Math.PI * 118; // ≈ 741.4
+
+    // State
+    let totalSeconds = 25 * 60;
+    let remaining   = totalSeconds;
+    let running     = false;
+    let timerId     = null;
+    let currentMode = 'work';
+    let pomodoroCount = 0;
+    let currentTask   = '';
+    let sessions      = JSON.parse(localStorage.getItem('pomo-sessions') || '[]');
+
+    // DOM refs
+    const timeEl    = document.getElementById('time');
+    const phaseEl   = document.getElementById('phase-label');
+    const ring      = document.getElementById('ring');
+    const startBtn  = document.getElementById('start-btn');
+    const resetBtn  = document.getElementById('reset-btn');
+    const countEl   = document.getElementById('count');
+    const taskInput = document.getElementById('task-input');
+    const addBtn    = document.getElementById('add-task-btn');
+    const logEl     = document.getElementById('session-log');
+    const clearBtn  = document.getElementById('clear-log-btn');
+    const tabs      = document.querySelectorAll('.mode-tabs button');
+
+    const PHASE_LABELS = { work: '作業中', break: '休憩中', long: '長休憩中' };
+
+    function formatTime(s) {
+      const m = String(Math.floor(s / 60)).padStart(2, '0');
+      const sec = String(s % 60).padStart(2, '0');
+      return `${m}:${sec}`;
+    }
+
+    function updateRing() {
+      const progress = remaining / totalSeconds;
+      ring.style.strokeDashoffset = CIRCUMFERENCE * (1 - progress);
+    }
+
+    function render() {
+      timeEl.textContent = formatTime(remaining);
+      phaseEl.textContent = PHASE_LABELS[currentMode];
+      updateRing();
+      document.title = `${formatTime(remaining)} — ポモドーロ`;
+    }
+
+    function tick() {
+      if (remaining <= 0) {
+        clearInterval(timerId);
+        running = false;
+        startBtn.textContent = 'スタート';
+        onPhaseEnd();
+        return;
+      }
+      remaining--;
+      render();
+    }
+
+    function onPhaseEnd() {
+      if (currentMode === 'work') {
+        pomodoroCount++;
+        countEl.textContent = pomodoroCount;
+        logSession();
+        beep(880, 0.15);
+        setTimeout(() => beep(1100, 0.12), 200);
+      } else {
+        beep(660, 0.12);
+      }
+      render();
+    }
+
+    function startStop() {
+      if (running) {
+        clearInterval(timerId);
+        running = false;
+        startBtn.textContent = 'スタート';
+      } else {
+        timerId = setInterval(tick, 1000);
+        running = true;
+        startBtn.textContent = '一時停止';
+        currentTask = taskInput.value.trim() || '無題';
+      }
+    }
+
+    function reset() {
+      clearInterval(timerId);
+      running = false;
+      remaining = totalSeconds;
+      startBtn.textContent = 'スタート';
+      render();
+    }
+
+    function switchMode(btn) {
+      clearInterval(timerId);
+      running = false;
+      startBtn.textContent = 'スタート';
+      currentMode  = btn.dataset.mode;
+      totalSeconds = Number(btn.dataset.minutes) * 60;
+      remaining    = totalSeconds;
+
+      tabs.forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+
+      document.body.classList.toggle('break-mode', currentMode !== 'work');
+      render();
+    }
+
+    // Session log
+    function logSession() {
+      const entry = {
+        task: currentTask || '無題',
+        time: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+        count: pomodoroCount,
+      };
+      sessions.unshift(entry);
+      if (sessions.length > 20) sessions.pop();
+      localStorage.setItem('pomo-sessions', JSON.stringify(sessions));
+      renderLog();
+    }
+
+    function renderLog() {
+      if (sessions.length === 0) {
+        logEl.innerHTML = '<div class="empty-log">完了したセッションがここに表示されます</div>';
+        return;
+      }
+      logEl.innerHTML = sessions.map(s => `
+        <div class="log-item">
+          <span class="task-name">${escHtml(s.task)}</span>
+          <div class="log-meta">
+            <span>${s.time}</span>
+            <span class="pomodoros">#${s.count}</span>
+          </div>
+        </div>`).join('');
+    }
+
+    function escHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // Simple beep using Web Audio API
+    function beep(freq, vol) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(vol, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.4);
+      } catch(e) { /* ignore */ }
+    }
+
+    // Events
+    startBtn.addEventListener('click', startStop);
+    resetBtn.addEventListener('click', reset);
+    clearBtn.addEventListener('click', () => {
+      sessions = [];
+      pomodoroCount = 0;
+      countEl.textContent = 0;
+      localStorage.removeItem('pomo-sessions');
+      renderLog();
+    });
+
+    addBtn.addEventListener('click', () => {
+      const v = taskInput.value.trim();
+      if (v) currentTask = v;
+    });
+
+    taskInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const v = taskInput.value.trim();
+        if (v) currentTask = v;
+        if (!running) startStop();
+      }
+    });
+
+    tabs.forEach(btn => btn.addEventListener('click', () => switchMode(btn)));
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', e => {
+      if (e.target === taskInput) return;
+      if (e.code === 'Space') { e.preventDefault(); startStop(); }
+      if (e.code === 'KeyR')  reset();
+    });
+
+    // Init
+    ring.style.strokeDasharray = CIRCUMFERENCE;
+    pomodoroCount = sessions.length > 0 ? sessions[0].count : 0;
+    countEl.textContent = pomodoroCount;
+    render();
+    renderLog();
+  </script>
+</body>
+</html>
