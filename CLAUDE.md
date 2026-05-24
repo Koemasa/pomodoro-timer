@@ -20,3 +20,6 @@ A single-file Pomodoro timer web app (`pomodoro-timer/index.html`) with work/bre
 - Before running any Bash command that might display secrets, explain the command and get approval first.
 - Before `git add` or `git push`, always show the list of files to be staged/pushed and wait for explicit confirmation.
 - Never execute operations that affect production environments or incur billing charges without explicit user approval.
+
+# コンプライアンス
+@../_common/privacy-law-japan.md

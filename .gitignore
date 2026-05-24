@@ -9,6 +9,10 @@ secrets/
 # Claude Code
 .claude/
 
+# Skills
+skills-lock.json
+.agents/
+
 # OS
 .DS_Store
 Thumbs.db
